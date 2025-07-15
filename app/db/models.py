@@ -1,11 +1,13 @@
-from sqlalchemy import Column, String, Enum, DateTime
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 import enum
 import uuid
 from datetime import datetime
 
+from sqlalchemy import Column, DateTime, Enum, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+
 Base = declarative_base()
+
 
 # Enum for job status
 class JobStatus(enum.Enum):
@@ -13,6 +15,7 @@ class JobStatus(enum.Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 # Model for job processing
 # This model represents the database you want to use

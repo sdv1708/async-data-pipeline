@@ -1,6 +1,7 @@
+import sys
 
 from loguru import logger
-import sys
+
 
 def configure_logger():
     """
@@ -18,6 +19,7 @@ def configure_logger():
         diagnose=True,
     )
 
+
 def get_logger_with_correlation_id(correlation_id: str):
     """
     Returns a contextualized logger with the given correlation_id.
@@ -26,6 +28,7 @@ def get_logger_with_correlation_id(correlation_id: str):
         logger.info("Inside processor")
     """
     return logger.contextualize(correlation_id=correlation_id)
+
 
 # Example usage:
 # configure_logger()
