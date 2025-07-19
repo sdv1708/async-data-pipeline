@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: async_pipeline
+      POSTGRES_USER: pipeline_user
+      POSTGRES_PASSWORD: pipeline_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline_user -d async_pipeline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # TODO: Add production database configuration
+    # - SSL/TLS setup
+    # - Connection pooling
+    # - Backup configuration
+    # - Performance tuning
+    # - Monitoring setup
+
+  # Redis Cache and Queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    # TODO: Add production Redis configuration
+    # - Memory optimization
+    # - Persistence configuration
+    # - Security setup
+    # - Monitoring setup
+    # - Cluster configuration
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://pipeline_user:pipeline_pass@db:5432/async_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+    # TODO: Add production API configuration
+    # - SSL/TLS termination
+    # - Load balancing
+    # - Rate limiting
+    # - Security headers
+    # - Monitoring setup
+
+  # RQ Worker
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://pipeline_user:pipeline_user@db:5432/async_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+    # TODO: Add production worker configuration
+    # - Auto-scaling
+    # - Resource limits
+    # - Job queue monitoring
+    # - Error handling
+    # - Graceful shutdown
+
+  # RQ Dashboard (Development only)
+  rq-dashboard:
+    image: eoranged/rq-dashboard:latest
+    ports:
+      - "9181:9181"
+    environment:
+      - RQ_DASHBOARD_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    profiles:
+      - dev
+    # TODO: Add dashboard configuration
+    # - Authentication
+    # - Custom branding
+    # - Monitoring integration
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+    profiles:
+      - production
+    # TODO: Add Nginx configuration
+    # - SSL/TLS setup
+    # - Load balancing
+    # - Static file serving
+    # - Security headers
+    # - Rate limiting
+
+volumes:
+  postgres_data:
+  redis_data:
+
+# TODO: Add additional services for production
+# - Monitoring (Prometheus, Grafana)
+# - Logging (ELK stack)
+# - Backup services
+# - Security scanning
+# - Load testing tools
+
+# TODO: Add network configuration
+# networks:
+#   frontend:
+#     driver: bridge
+#   backend:
+#     driver: bridge
+#     internal: true
+
+# TODO: Add secrets management
+# secrets:
+#   db_password:
+#     file: ./secrets/db_password.txt
+#   redis_password:
+#     file: ./secrets/redis_password.txt
