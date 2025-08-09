@@ -7,6 +7,7 @@ from datetime import datetime
 import uuid
 from app.common.logging import get_logger
 from app.common.kafka_client import KafkaProducerClient
+from app.pydantic_schema import OrderEvent
 
 logger = get_logger(__name__)
 
