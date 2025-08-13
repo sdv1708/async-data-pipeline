@@ -94,14 +94,14 @@ class OrderEventConsumer:
         # )
         
         # Router based on event type
-        event_type = event.get('event_type')
-        
-        if event_type == 'ORDER_CREATED':
-            await self.handle_order_created(event)
-        elif event_type == 'PAYMENT_AUTHORIZED':
-            await self.handle_payment_authorized(event)
-        else:
-            logger.warning("unknown_event_type", event_type=event_type)
+            event_type = event.get('event_type')
+            
+            if event_type == 'ORDER_CREATED':
+                await self.handle_order_created(event)
+            elif event_type == 'PAYMENT_AUTHORIZED':
+                await self.handle_payment_authorized(event)
+            else:
+                logger.warning("unknown_event_type", event_type=event_type)
         
         except Exception as e:
             logger.error(
