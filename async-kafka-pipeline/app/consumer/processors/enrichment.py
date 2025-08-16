@@ -94,7 +94,7 @@ class EventEnricher:
                 product_data = await EventEnricher.enrich_product_data(sku)
                 item['product_enrichment'] = product_data
         
-        event['payload'] = payload
-        event['enriched'] = True
+        event_data['payload'] = payload
+        event_data['enriched'] = True
 
-        return event
+        return event_data

@@ -19,6 +19,10 @@ asyncpg = "^0.30.0"
 psycopg2-binary = "^2.9.10"
 alembic = "^1.16.4"
 redis = {extras = ["hiredis"], version = "^6.4.0"}
+prometheus-client = "^0.22.1"
+opentelemetry-api = "^1.36.0"
+opentelemetry-sdk = "^1.36.0"
+opentelemetry-instrumentation-fastapi = "^0.57b0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

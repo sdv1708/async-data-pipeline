@@ -5,6 +5,12 @@ from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import CommitFailedError
 from typing import List, Optional
 from app.common.logging import get_logger
+from app.consumer.processors.enrichment import EventEnricher
+from app.consumer.processors.fraud import FraudDetector
+from app.cache.redis_client import redis_cache
+from app.db.database import init_db, get_session
+from app.db.models import OrderEvent, OrderState
+from datetime import datetime
 
 logger = get_logger(__name__)
 
@@ -35,6 +41,11 @@ class OrderEventConsumer:
             heartbeat_interval_ms=10000,
             max_poll_records=10
         )
+        # Initialize database
+        await init_db()
+
+        # Connect to Redis
+        await redis_cache.connect()
         
         await self.consumer.start()
         self.running = True
@@ -50,73 +61,52 @@ class OrderEventConsumer:
         self.running = False
         if self.consumer:
             await self.consumer.stop()
-            logger.info("consumer_stopped")
+        
+        # Disconnect Redis
+        await redis_cache.disconnect()
+        logger.info("consumer_stopped")
     
     async def process_message(self, message):
-        """Process a single message"""
+        """Process message through the pipeline"""
         event = message.value
-
+        event_id = event.get('event_id')
+        
         try:
-            # Extract event details
-            event_id = event.get('event_id')
-            event_type = event.get('event_type')
-            order_id = event.get('order_id')
-            timestamp = datetime.fromtimestamp(event.get('timestamp', 0) / 1000)
+            # Step 1: Check for duplicates
+            if await redis_cache.is_duplicate(event_id):
+                logger.warning("duplicate_event_skipped", event_id=event_id)
+                return  # Skip duplicate
+            
+            # Step 2: Enrich event
+            if event.get('event_type') == 'ORDER_CREATED':
+                event = await EventEnricher.enrich_order_created_event(event)
+            
+            # Step 3: Fraud detection
+            fraud_result = await FraudDetector.analyze_order(event)
+            event['fraud_analysis'] = fraud_result
+            
+            # Step 4: Save to database
+            await self.save_to_database(event, message)
+            
+            # Step 5: Cache order state
+            await self.cache_order_state(event)
+            
+            # Step 6: Route to specific handlers
+            await self.route_event(event)
             
             logger.info(
-                "processing_event",
+                "event_processed_successfully",
                 event_id=event_id,
-                event_type=event_type,
-                order_id=order_id
+                enriched=event.get('enriched', False),
+                is_fraudulent=fraud_result.get('is_fraudulent', False)
             )
             
-            # Save raw event (idempotent)
-            await EventRepository.save_event(
-                event_id=event_id,
-                event_type=event_type,
-                order_id=order_id,
-                timestamp=timestamp,
-                payload=event.get('payload', {}),
-                kafka_partition=message.partition,
-                kafka_offset=message.offset,
-                source=event.get('source', 'synthetic')
-            )
-
-            await EventRepository.update_order_state(event)
-        
-        # logger.info(
-        #     "processing_event",
-        #     event_id=event.get('event_id'),
-        #     event_type=event.get('event_type'),
-        #     order_id=event.get('order_id'),
-        #     partition=message.partition,
-        #     offset=message.offset
-        # )
-        
-        # Router based on event type
-            event_type = event.get('event_type')
-            
-            if event_type == 'ORDER_CREATED':
-                await self.handle_order_created(event)
-            elif event_type == 'PAYMENT_AUTHORIZED':
-                await self.handle_payment_authorized(event)
-            else:
-                logger.warning("unknown_event_type", event_type=event_type)
-        
         except Exception as e:
             logger.error(
-                "event_processing_failed",
+                "pipeline_processing_failed",
                 error=str(e),
-                event_id=event.get('event_id')
+                event_id=event_id
             )
-            
-            # Save error for retry/analysis
-            await EventRepository.save_error(
-                event=event,
-                error_type=type(e).__name__,
-                error_message=str(e)
-            )
-            # Re-raise to prevent offset commit
             raise
     
     async def handle_order_created(self, event):
@@ -149,6 +139,62 @@ class OrderEventConsumer:
             payment_id=payload.get('payment_id'),
             amount=payload.get('amount')
         )
+    
+    async def save_to_database(self, event, message):
+        """Save event to database"""
+        async with get_session() as session:
+            # Save raw event
+            order_event = OrderEvent(
+                event_id=event.get('event_id'),
+                event_type=event.get('event_type'),
+                order_id=event.get('order_id'),
+                timestamp=datetime.fromtimestamp(event.get('timestamp', 0) / 1000),
+                payload=event.get('payload', {}),
+                kafka_partition=message.partition,
+                kafka_offset=message.offset,
+                source=event.get('source', 'synthetic')
+            )
+            session.add(order_event)
+            
+            # Update order state if it's an ORDER_CREATED event
+            if event.get('event_type') == 'ORDER_CREATED':
+                payload = event.get('payload', {})
+                order_state = OrderState(
+                    order_id=event.get('order_id'),
+                    user_id=payload.get('user_id'),
+                    total_amount=payload.get('total_amount'),
+                    status='pending',
+                    created_at=datetime.fromtimestamp(event.get('timestamp', 0) / 1000)
+                )
+                session.merge(order_state)  # Use merge for upsert behavior
+    
+    async def cache_order_state(self, event):
+        """Cache order state in Redis"""
+        if event.get('event_type') == 'ORDER_CREATED':
+            order_id = event.get('order_id')
+            payload = event.get('payload', {})
+            
+            state = {
+                'order_id': order_id,
+                'user_id': payload.get('user_id'),
+                'total_amount': payload.get('total_amount'),
+                'status': 'pending',
+                'fraud_analysis': event.get('fraud_analysis', {}),
+                'enriched': event.get('enriched', False)
+            }
+            
+            await redis_cache.cache_order_state(order_id, state)
+    
+    async def route_event(self, event):
+        """Route event to appropriate handlers"""
+        event_type = event.get('event_type')
+        
+        if event_type == 'ORDER_CREATED':
+            await self.handle_order_created(event)
+        elif event_type == 'PAYMENT_AUTHORIZED':
+            await self.handle_payment_authorized(event)
+        else:
+            logger.warning("unknown_event_type", event_type=event_type)
     
     async def consume(self):
         """Main consumption loop"""
