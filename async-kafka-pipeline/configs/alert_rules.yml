@@ -1,0 +1,42 @@
+groups:
+  - name: kafka_pipeline_alerts
+    rules:
+      # High error rate
+      - alert: HighEventProcessingErrorRate
+        expr: rate(events_processed_total{status="error"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High event processing error rate"
+          description: "Event processing error rate is {{ $value }} errors per second"
+
+      # Processing lag
+      - alert: HighProcessingDuration
+        expr: histogram_quantile(0.95, rate(event_processing_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High event processing duration"
+          description: "95th percentile processing duration is {{ $value }} seconds"
+
+      # Kafka lag
+      - alert: HighKafkaLag
+        expr: kafka_lag > 1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High Kafka consumer lag"
+          description: "Kafka lag is {{ $value }} messages for topic {{ $labels.topic }}"
+
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} service is down"

@@ -98,7 +98,7 @@ class KafkaEventProducer:
         order_id = order_event["order_id"]
         amount = order_event["payload"]["total_amount"]
         
-        print(f"📦 Creating order {order_id} (${amount})")
+        print(f" Creating order {order_id} (${amount})")
         await self.send_event(order_event)
         
         # Wait a bit before payment
@@ -107,7 +107,7 @@ class KafkaEventProducer:
         # Authorize payment (80% of the time)
         if random.random() < 0.8:
             payment_event = self.generate_payment_authorized_event(order_id, amount)
-            print(f"💳 Authorizing payment for {order_id}")
+            print(f" Authorizing payment for {order_id}")
             await self.send_event(payment_event)
 
 @click.command()
@@ -123,7 +123,7 @@ async def main(count, delay, topic, continuous):
         await producer.start()
         
         if continuous:
-            print(f"🔄 Generating events continuously (delay: {delay}s). Press Ctrl+C to stop...")
+            print(f" Generating events continuously (delay: {delay}s). Press Ctrl+C to stop...")
             i = 0
             while True:
                 i += 1
@@ -138,10 +138,10 @@ async def main(count, delay, topic, continuous):
                 if i < count - 1:
                     await asyncio.sleep(delay)
             
-            print("\n✅ Event generation completed!")
+            print("\n Event generation completed!")
             
     except KeyboardInterrupt:
-        print("\n🛑 Stopping event producer...")
+        print("\n Stopping event producer...")
     finally:
         await producer.stop()
 

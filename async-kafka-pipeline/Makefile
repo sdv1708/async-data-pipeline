@@ -22,11 +22,19 @@ help:
 	@echo "  make run-producer - Start the event producer (for testing)"
 	@echo "  make test-pipeline - Run complete pipeline test"
 	@echo ""
+	@echo "📊 Monitoring:"
+	@echo "  make open-grafana  - Open Grafana dashboard"
+	@echo "  make open-prometheus - Open Prometheus"
+	@echo "  make metrics       - Show current metrics"
+	@echo "  make monitoring-status - Check monitoring stack"
+	@echo ""
 	@echo "🧹 Cleanup:"
 	@echo "  make clean        - Clean up everything"
 	@echo ""
 	@echo "🌐 Web UIs:"
 	@echo "  Kafka UI: http://localhost:8080"
+	@echo "  Grafana: http://localhost:3000 (admin/admin)"
+	@echo "  Prometheus: http://localhost:9090"
 
 # Installation and Setup
 install:
@@ -34,8 +42,12 @@ install:
 	poetry install
 	@echo "✅ Dependencies installed!"
 
-setup: install up init-db
+setup: install up init-db setup-monitoring
 	@echo "🎉 Setup complete! Ready to run the pipeline."
+
+setup-monitoring:
+	@echo "🔧 Setting up monitoring..."
+	poetry run python tools/monitoring_setup.py
 
 # Infrastructure Management
 up:
@@ -46,6 +58,8 @@ up:
 	@make health-check
 	@echo "✅ Services are running!"
 	@echo "🌐 Kafka UI: http://localhost:8080"
+	@echo "🌐 Grafana: http://localhost:3000 (admin/admin)"
+	@echo "🌐 Prometheus: http://localhost:9090"
 
 down:
 	@echo "🛑 Stopping all services..."
@@ -118,6 +132,24 @@ check-db:
 	@echo ""
 	@echo "Order states:"
 	docker exec postgres psql -U pipeline_user -d orders_db -c "SELECT order_id, status, total_amount FROM order_states LIMIT 5;"
+
+# Monitoring commands
+open-grafana:
+	@echo "🌐 Opening Grafana dashboard..."
+	@echo "URL: http://localhost:3000"
+	@echo "Login: admin/admin"
+
+open-prometheus:
+	@echo "🌐 Opening Prometheus..."
+	@echo "URL: http://localhost:9090"
+
+metrics:
+	@echo "📊 Application metrics:"
+	@curl -s http://localhost:8000/metrics | grep -E "(events_|processing_|fraud_)" || echo "Metrics server not running. Start consumer first."
+
+monitoring-status:
+	@echo "📊 Monitoring Stack Status:"
+	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter "name=prometheus" --filter "name=grafana" --filter "name=node-exporter"
 
 # Cleanup
 clean:

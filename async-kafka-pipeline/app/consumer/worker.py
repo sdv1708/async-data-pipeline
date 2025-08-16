@@ -11,6 +11,10 @@ from app.cache.redis_client import redis_cache
 from app.db.database import init_db, get_session
 from app.db.models import OrderEvent, OrderState
 from datetime import datetime
+from app.common.metrics import (
+    timing_decorator, record_event_received, record_event_processed,
+    record_event_enriched, start_metrics_server, set_active_consumers
+)
 
 logger = get_logger(__name__)
 
@@ -29,6 +33,9 @@ class OrderEventConsumer:
         
     async def start(self):
         """Start the consumer"""
+        # Start metrics server
+        start_metrics_server(port=8000)
+        
         self.consumer = AIOKafkaConsumer(
             *self.topics,
             bootstrap_servers=self.bootstrap_servers,
@@ -49,6 +56,7 @@ class OrderEventConsumer:
         
         await self.consumer.start()
         self.running = True
+        set_active_consumers(1)
         logger.info(
             "consumer_started",
             topics=self.topics,
@@ -66,12 +74,16 @@ class OrderEventConsumer:
         await redis_cache.disconnect()
         logger.info("consumer_stopped")
     
+    @timing_decorator('processing')
     async def process_message(self, message):
         """Process message through the pipeline"""
         event = message.value
         event_id = event.get('event_id')
         
         try:
+            # Record event received
+            record_event_received(event.get('event_type', 'unknown'))
+            
             # Step 1: Check for duplicates
             if await redis_cache.is_duplicate(event_id):
                 logger.warning("duplicate_event_skipped", event_id=event_id)
@@ -80,6 +92,7 @@ class OrderEventConsumer:
             # Step 2: Enrich event
             if event.get('event_type') == 'ORDER_CREATED':
                 event = await EventEnricher.enrich_order_created_event(event)
+                record_event_enriched(event.get('event_type'))
             
             # Step 3: Fraud detection
             fraud_result = await FraudDetector.analyze_order(event)
@@ -94,6 +107,9 @@ class OrderEventConsumer:
             # Step 6: Route to specific handlers
             await self.route_event(event)
             
+            # Record successful processing
+            record_event_processed(event.get('event_type', 'unknown'), 'success')
+            
             logger.info(
                 "event_processed_successfully",
                 event_id=event_id,
@@ -102,6 +118,9 @@ class OrderEventConsumer:
             )
             
         except Exception as e:
+            # Record failed processing
+            record_event_processed(event.get('event_type', 'unknown'), 'error')
+            
             logger.error(
                 "pipeline_processing_failed",
                 error=str(e),

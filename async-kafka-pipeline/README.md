@@ -152,7 +152,10 @@ make test-pipeline
 
 ### Monitoring
 
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **Prometheus Metrics**: http://localhost:9090
 - **Kafka UI**: http://localhost:8080
+- **Application Metrics**: `make metrics`
 - **Database**: `make check-db`
 - **Redis**: `make monitor-redis`
 - **Logs**: `make logs`
