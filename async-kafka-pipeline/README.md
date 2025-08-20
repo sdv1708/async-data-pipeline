@@ -162,13 +162,44 @@ make test-pipeline
 
 ## 📊 Event Flow
 
-1. **Event Generation**: Producer sends ORDER_CREATED events to Kafka
-2. **Deduplication**: Redis checks prevent duplicate processing
-3. **Enrichment**: User and product data added from cache/external APIs
-4. **Fraud Detection**: ML-based fraud analysis
-5. **Persistence**: Events saved to PostgreSQL
-6. **Caching**: Order states cached in Redis
-7. **Routing**: Events routed to specific business logic handlers
+1. **Event Generation**: Producer sends ORDER_CREATED events to Kafka using **Avro serialization**
+2. **Partitioning**: Events are partitioned by **order_id** (partition key = order_id)
+3. **Deduplication**: Redis checks prevent duplicate processing
+4. **Enrichment**: User and product data added from cache/external APIs
+5. **Fraud Detection**: ML-based fraud analysis
+6. **Persistence**: Events saved to PostgreSQL
+7. **Caching**: Order states cached in Redis
+8. **Routing**: Events routed to specific business logic handlers
+
+## 📋 Avro Schema
+
+Events are serialized using Avro for schema evolution and compact binary format. The schema supports:
+
+- **Event Types**: ORDER_CREATED, PAYMENT_AUTHORIZED, ORDER_SHIPPED, etc.
+- **Structured Payload**: Order items, shipping address, payment details
+- **Schema Evolution**: Backward/forward compatibility with optional fields
+- **Partition Key**: `order_id` ensures related events go to the same partition
+
+### Schema Location
+```
+app/producer/schemas/order_event.avsc
+```
+
+### Test Schema and Integration
+```bash
+make test-avro                    # Test schema validation
+make test-avro-integration        # Test Kafka integration
+```
+
+## 🚀 Avro Serialization
+
+The pipeline uses **Avro binary serialization** for optimal performance:
+
+- **40% smaller** messages than JSON
+- **Schema evolution** support for backward/forward compatibility  
+- **Type safety** with Pydantic validation
+- **JSON fallback** for smooth migration
+- **Rich headers** for observability and tracing
 
 ## 🗄️ Database Schema
 

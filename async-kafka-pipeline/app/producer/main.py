@@ -2,17 +2,19 @@
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict, Any
 from datetime import datetime
 import uuid
+import time
 from app.common.logging import get_logger
-from app.common.kafka_client import KafkaProducerClient
-from app.pydantic_schema import OrderEvent
+from app.common.avro_kafka_client import AvroKafkaProducer
+from app.producer.schemas import OrderEvent, OrderItem, Address
+from app.producer.avro_utils import serialize_order_event, validate_order_event
 
 logger = get_logger(__name__)
 
-# Global Kafka producer
-kafka_producer = KafkaProducerClient()
+# Global Avro Kafka producer
+kafka_producer = AvroKafkaProducer(use_avro=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,11 +52,16 @@ async def publish_event(event: OrderEvent):
             order_id=event.order_id
         )
         
-        # Publish to Kafka
+        # Convert to Avro-compatible format and publish to Kafka
+        avro_data = event.to_avro_dict()
         result = await kafka_producer.send_event(
             topic="orders.raw",
-            event=event.model_dump(),
-            key=event.order_id
+            event=avro_data,
+            key=event.order_id,  # Explicit partition key = order_id
+            headers={
+                'event_type': event.event_type.encode('utf-8'),
+                'source': event.source.encode('utf-8')
+            }
         )
         
         return {

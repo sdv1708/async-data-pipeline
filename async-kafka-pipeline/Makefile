@@ -20,6 +20,8 @@ help:
 	@echo "🔄 Pipeline:"
 	@echo "  make run-consumer - Start the Kafka consumer"
 	@echo "  make run-producer - Start the event producer (for testing)"
+	@echo "  make test-avro    - Test Avro schema and serialization"
+	@echo "  make test-avro-integration - Test Avro with Kafka integration"
 	@echo "  make test-pipeline - Run complete pipeline test"
 	@echo ""
 	@echo "📊 Monitoring:"
@@ -93,13 +95,25 @@ run-producer:
 	poetry run python tools/event_producer.py
 
 # Testing
+test-avro:
+	@echo "🧪 Testing Avro schema and serialization..."
+	poetry run python tools/test_avro_schema.py
+
+test-avro-integration:
+	@echo "🧪 Testing Avro integration with Kafka..."
+	poetry run python tools/test_avro_integration.py
+
 test-pipeline: 
 	@echo "🧪 Running complete pipeline test..."
-	@echo "1. Checking if services are healthy..."
+	@echo "1. Testing Avro schema..."
+	@make test-avro
+	@echo "2. Checking if services are healthy..."
 	@poetry run python tools/health_check.py || (echo "❌ Services not ready. Run 'make up' first." && exit 1)
-	@echo "2. Generating test events..."
+	@echo "3. Testing Avro integration..."
+	@make test-avro-integration
+	@echo "4. Generating test events..."
 	poetry run python tools/event_producer.py --count 5 --delay 1
-	@echo "3. Check results in database..."
+	@echo "5. Check results in database..."
 	@make check-db
 	@echo "✅ Pipeline test completed!"
 

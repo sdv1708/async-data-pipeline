@@ -3,21 +3,29 @@ from aiokafka.errors import KafkaError
 import json
 from typing import Any, Dict, List, Optional, Union
 from app.common.logging import get_logger
+from app.producer.avro_utils import serialize_order_event
 
 logger = get_logger(__name__)
 
 class KafkaProducerClient:
-    def __init__(self, bootstrap_servers: str = 'localhost:9092'):
+    def __init__(self, bootstrap_servers: str = 'localhost:9092', use_avro: bool = True):
         self.bootstrap_servers = bootstrap_servers
+        self.use_avro = use_avro
         self.producer = Optional[AIOKafkaProducer] = None
 
     async def start(self):
         """Initialize and start the Kafka producer."""
         try:
+            # Choose serializer based on configuration
+            if self.use_avro:
+                value_serializer = self._avro_serializer
+            else:
+                value_serializer = lambda v: json.dumps(v).encode('utf-8')
+            
             self.producer = AIOKafkaProducer(
                 bootstrap_servers = self.bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v).encode('utf-8'), 
-                key_serializer=lambda k: json.dumps(k).encode('utf-8') if k else None,
+                value_serializer=value_serializer, 
+                key_serializer=lambda k: k.encode('utf-8') if k else None,  # Keys are strings (order_id)
                 acks='all', # Ensure all replicas acknowledge the write
                 enable_idempotence=True, # Enable idempotence to avoid duplicate messages
                 max_in_flight_requests_per_connection=5, # Limit in-flight requests,
@@ -25,10 +33,20 @@ class KafkaProducerClient:
             )
 
             await self.producer.start()
-            logger.info("Kafka producer started successfully", servers=self.bootstrap_servers)
+            logger.info("Kafka producer started successfully", 
+                       servers=self.bootstrap_servers, 
+                       serialization="avro" if self.use_avro else "json")
 
         except Exception as e:
             logger.error("Failed to initialize Kafka producer", exc_info=True)
+            raise
+    
+    def _avro_serializer(self, value: Dict[str, Any]) -> bytes:
+        """Serialize value using Avro schema"""
+        try:
+            return serialize_order_event(value)
+        except Exception as e:
+            logger.error("avro_serialization_error", error=str(e), value_keys=list(value.keys()) if isinstance(value, dict) else "not_dict")
             raise
 
 

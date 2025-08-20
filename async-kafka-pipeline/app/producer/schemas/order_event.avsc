@@ -1,0 +1,222 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.pipeline.events",
+  "doc": "Schema for order-related events in the async Kafka pipeline",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique identifier for this event (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": [
+          "ORDER_CREATED",
+          "ORDER_UPDATED", 
+          "ORDER_CANCELLED",
+          "PAYMENT_AUTHORIZED",
+          "PAYMENT_CAPTURED",
+          "PAYMENT_FAILED",
+          "ORDER_SHIPPED",
+          "ORDER_DELIVERED",
+          "ORDER_RETURNED"
+        ]
+      },
+      "doc": "Type of the order event"
+    },
+    {
+      "name": "order_id",
+      "type": "string",
+      "doc": "Unique identifier for the order (used as partition key)"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "source",
+      "type": {
+        "type": "string",
+        "default": "order-service"
+      },
+      "doc": "Source system that generated this event"
+    },
+    {
+      "name": "version",
+      "type": {
+        "type": "string",
+        "default": "1.0"
+      },
+      "doc": "Schema version for backward compatibility"
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "OrderEventPayload",
+        "fields": [
+          {
+            "name": "user_id",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "ID of the user who placed the order"
+          },
+          {
+            "name": "total_amount",
+            "type": ["null", "double"],
+            "default": null,
+            "doc": "Total order amount in USD"
+          },
+          {
+            "name": "currency",
+            "type": {
+              "type": "string",
+              "default": "USD"
+            },
+            "doc": "Currency code (ISO 4217)"
+          },
+          {
+            "name": "status",
+            "type": ["null", {
+              "type": "enum",
+              "name": "OrderStatus",
+              "symbols": [
+                "PENDING",
+                "CONFIRMED", 
+                "PAID",
+                "PROCESSING",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED",
+                "RETURNED"
+              ]
+            }],
+            "default": null,
+            "doc": "Current order status"
+          },
+          {
+            "name": "items",
+            "type": ["null", {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "OrderItem",
+                "fields": [
+                  {
+                    "name": "sku",
+                    "type": "string",
+                    "doc": "Stock Keeping Unit identifier"
+                  },
+                  {
+                    "name": "product_name",
+                    "type": ["null", "string"],
+                    "default": null,
+                    "doc": "Human-readable product name"
+                  },
+                  {
+                    "name": "quantity",
+                    "type": "int",
+                    "doc": "Number of items ordered"
+                  },
+                  {
+                    "name": "unit_price",
+                    "type": "double",
+                    "doc": "Price per unit in the order currency"
+                  },
+                  {
+                    "name": "category",
+                    "type": ["null", "string"],
+                    "default": null,
+                    "doc": "Product category"
+                  }
+                ]
+              }
+            }],
+            "default": null,
+            "doc": "List of items in the order"
+          },
+          {
+            "name": "shipping_address",
+            "type": ["null", {
+              "type": "record",
+              "name": "Address",
+              "fields": [
+                {
+                  "name": "street",
+                  "type": "string",
+                  "doc": "Street address"
+                },
+                {
+                  "name": "city",
+                  "type": "string",
+                  "doc": "City name"
+                },
+                {
+                  "name": "state",
+                  "type": ["null", "string"],
+                  "default": null,
+                  "doc": "State or province"
+                },
+                {
+                  "name": "postal_code",
+                  "type": "string",
+                  "doc": "Postal or ZIP code"
+                },
+                {
+                  "name": "country",
+                  "type": {
+                    "type": "string",
+                    "default": "US"
+                  },
+                  "doc": "Country code (ISO 3166-1 alpha-2)"
+                }
+              ]
+            }],
+            "default": null,
+            "doc": "Shipping address for the order"
+          },
+          {
+            "name": "payment_method",
+            "type": ["null", {
+              "type": "enum",
+              "name": "PaymentMethod",
+              "symbols": [
+                "CREDIT_CARD",
+                "DEBIT_CARD",
+                "PAYPAL",
+                "APPLE_PAY",
+                "GOOGLE_PAY",
+                "BANK_TRANSFER",
+                "CASH_ON_DELIVERY"
+              ]
+            }],
+            "default": null,
+            "doc": "Payment method used for the order"
+          },
+          {
+            "name": "payment_id",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "External payment processor transaction ID"
+          },
+          {
+            "name": "metadata",
+            "type": ["null", {
+              "type": "map",
+              "values": "string"
+            }],
+            "default": null,
+            "doc": "Additional event-specific metadata as key-value pairs"
+          }
+        ]
+      },
+      "doc": "Event-specific payload data"
+    }
+  ]
+}

@@ -1,10 +1,9 @@
 # app/consumer/worker.py
 import asyncio
 import json
-from aiokafka import AIOKafkaConsumer
-from aiokafka.errors import CommitFailedError
 from typing import List, Optional
 from app.common.logging import get_logger
+from app.common.avro_kafka_client import AvroKafkaConsumer
 from app.consumer.processors.enrichment import EventEnricher
 from app.consumer.processors.fraud import FraudDetector
 from app.cache.redis_client import redis_cache
@@ -28,7 +27,7 @@ class OrderEventConsumer:
         self.topics = topics
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
-        self.consumer: Optional[AIOKafkaConsumer] = None
+        self.consumer: Optional[AvroKafkaConsumer] = None
         self.running = False
         
     async def start(self):
@@ -36,31 +35,29 @@ class OrderEventConsumer:
         # Start metrics server
         start_metrics_server(port=8000)
         
-        self.consumer = AIOKafkaConsumer(
-            *self.topics,
-            bootstrap_servers=self.bootstrap_servers,
-            group_id=self.group_id,
-            value_deserializer=lambda v: json.loads(v.decode('utf-8')),
-            key_deserializer=lambda k: k.decode('utf-8') if k else None,
-            enable_auto_commit=False,  # Manual commit for control
-            auto_offset_reset='earliest',  # Start from beginning
-            session_timeout_ms=30000,
-            heartbeat_interval_ms=10000,
-            max_poll_records=10
-        )
         # Initialize database
         await init_db()
 
         # Connect to Redis
         await redis_cache.connect()
         
+        # Create and start Avro consumer
+        self.consumer = AvroKafkaConsumer(
+            topics=self.topics,
+            group_id=self.group_id,
+            bootstrap_servers=self.bootstrap_servers,
+            use_avro=True
+        )
+        
         await self.consumer.start()
         self.running = True
         set_active_consumers(1)
+        
         logger.info(
-            "consumer_started",
+            "avro_consumer_started",
             topics=self.topics,
-            group_id=self.group_id
+            group_id=self.group_id,
+            serialization="avro"
         )
     
         
@@ -216,32 +213,11 @@ class OrderEventConsumer:
             logger.warning("unknown_event_type", event_type=event_type)
     
     async def consume(self):
-        """Main consumption loop"""
+        """Main consumption loop using Avro consumer"""
         try:
-            async for message in self.consumer:
-                if not self.running:
-                    break
-                
-                try:
-                    # Process the message
-                    await self.process_message(message)
-                    
-                    # Commit offset after successful processing
-                    await self.consumer.commit()
-                    
-                except Exception as e:
-                    logger.error(
-                        "message_processing_failed",
-                        error=str(e),
-                        offset=message.offset,
-                        partition=message.partition
-                    )
-                    # Don't commit on error - message will be reprocessed
-                    
-        except CommitFailedError as e:
-            logger.error("commit_failed", error=str(e))
+            await self.consumer.consume_messages(self.process_message)
         except Exception as e:
-            logger.error("consumer_error", error=str(e))
+            logger.error("avro_consumer_error", error=str(e))
         finally:
             await self.stop()
 
