@@ -14,6 +14,7 @@ except Exception:  # ImportError or environment without boto3
 import yaml
 from aiokafka import AIOKafkaConsumer
 from fastavro import schemaless_reader
+from sqlalchemy.dialects.postgresql import insert
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
@@ -22,6 +23,8 @@ from prometheus_client import Counter, start_http_server
 
 from app.consumer.dedup import deduplicate
 from app.consumer.processors import enrich, fraud
+from app.db.models import OrderEvent
+from app.db.session import async_session
 
 # ---------- Config / Logging ----------
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
@@ -59,6 +62,22 @@ if RAW_EVENTS_BUCKET and boto3 is None:
 S3 = boto3.client("s3") if (RAW_EVENTS_BUCKET and boto3 is not None) else None
 
 
+async def upsert_event(event: dict) -> None:
+    stmt = (
+        insert(OrderEvent)
+        .values(
+            event_id=event["event_id"],
+            order_id=event["order_id"],
+            payload=json.dumps(event),
+        )
+        .on_conflict_do_update(
+            index_elements=["event_id"], set_={"payload": json.dumps(event)}
+        )
+    )
+    async with async_session() as session:
+        await session.execute(stmt)
+        await session.commit()
+
 async def consume() -> None:
     consumer = AIOKafkaConsumer(
         os.getenv("KAFKA_TOPIC_ORDERS", "orders.raw"),
@@ -91,6 +110,7 @@ async def consume() -> None:
                 # Enrich + Fraud checks
                 data = await enrich.process(data)
                 flagged = await fraud.check(data)
+                await upsert_event(data)
                 if flagged:
                     # TODO: publish to a flagged topic (e.g., "orders.flagged")
                     # Consider using aiokafka.AIOKafkaProducer here.

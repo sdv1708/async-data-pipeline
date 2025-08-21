@@ -28,8 +28,24 @@ Python 3.12, FastAPI, aiokafka, Redis, Postgres, Terraform, GitHub Actions, dbt.
 ## Local Workflow
 `make dev-bootstrap` then `make compose-up` to start local stack; `make test` for tests.
 
+## Runtime Environment Variables
+Set these in a `.env` file or your shell:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `KAFKA_BOOTSTRAP_SERVERS`
+- `KAFKA_TOPIC_ORDERS`
+- `KAFKA_TOPIC_FLAGGED`
+- `SCHEMA_REGISTRY_URL`
+- `OTEL_EXPORTER_OTLP_ENDPOINT`
+- `PROMETHEUS_PORT`
+- `LOG_LEVEL`
+- `APP_ENV`
+- `EXACTLY_ONCE_ENABLED`
+- `DEDUP_BLOOM_ENABLED`
+
 ## Consistency & Logging
-Eventual consistency: read side may lag. Structured JSON logs carry `trace_id`, `span_id`, and `order_id` for each event.
+Eventual consistency: read side may lag. Idempotent upserts and deduplication guard against duplicates. Structured JSON logs carry `trace_id`, `span_id`, and `order_id` for each event.
 
 ## Observability
 Both the FastAPI producer and async consumer load `configs/logging.yaml` for structured logs and `configs/otel.yaml` to configure OpenTelemetry exporters. FastAPI routes and Kafka loops emit spans, and metrics are exposed via `prometheus_client` at `/metrics`.
