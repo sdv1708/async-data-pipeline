@@ -1,0 +1,18 @@
+version: 1
+formatters:
+  json:
+    () : structlog.stdlib.ProcessorFormatter
+    processor: structlog.processors.JSONRenderer
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: json
+    stream: ext://sys.stdout
+loggers:
+  app:
+    level: INFO
+    handlers: [console]
+    propagate: False
+root:
+  level: INFO
+  handlers: [console]

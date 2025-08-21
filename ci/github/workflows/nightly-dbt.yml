@@ -1,0 +1,11 @@
+name: nightly-dbt
+on:
+  schedule:
+    - cron: '0 5 * * *'
+
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "TODO: run dbt models and docs"

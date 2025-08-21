@@ -1,0 +1,89 @@
+version: '3.8'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - '2181:2181'
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - '9092:9092'
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - '8081:8081'
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: events
+    ports:
+      - '5432:5432'
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    ports:
+      - '16686:16686'
+      - '4317:4317'
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - '3000:3000'
+
+  app-producer:
+    image: python:3.12-slim
+    command: uvicorn app.producer.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./:/code
+    working_dir: /code
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_ORDERS: orders.raw
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    depends_on:
+      - kafka
+    ports:
+      - '8000:8000'
+
+  app-consumer:
+    image: python:3.12-slim
+    command: python -m app.consumer.worker
+    volumes:
+      - ./:/code
+    working_dir: /code
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_ORDERS: orders.raw
+    depends_on:
+      - kafka

@@ -1,0 +1,15 @@
+name: build-push
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - run: docker build -t ghcr.io/OWNER/TODO_ECR_REPOSITORY:latest .
+      - run: echo "TODO: docker push ghcr.io/OWNER/TODO_ECR_REPOSITORY:latest"
