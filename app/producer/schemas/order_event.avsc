@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.demo.ecommerce",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "order_id", "type": "string"},
+    {"name": "timestamp", "type": "long"},
+    {"name": "source", "type": "string"},
+    {"name": "event_type", "type": {"type": "enum", "name": "EventType", "symbols": ["ORDER_CREATED", "PAYMENT_AUTHORIZED", "ITEM_PICKED", "SHIPMENT_DISPATCHED"]}},
+    {"name": "payload", "type": "string"}
+  ]
+}

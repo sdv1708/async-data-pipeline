@@ -1,0 +1,22 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: TODO_AWS_OIDC_ROLE_ARN
+          aws-region: TODO_AWS_REGION
+      - run: cd infra/terraform && terraform fmt -check && terraform validate && terraform plan
+      - run: echo "TODO: terraform apply on main"
