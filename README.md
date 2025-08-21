@@ -31,6 +31,18 @@ Python 3.12, FastAPI, aiokafka, Redis, Postgres, Terraform, GitHub Actions, dbt.
 ## Consistency & Logging
 Eventual consistency: read side may lag. Structured JSON logs carry `trace_id`, `span_id`, and `order_id` for each event.
 
+## Observability
+Both the FastAPI producer and async consumer load `configs/logging.yaml` for structured logs and `configs/otel.yaml` to configure OpenTelemetry exporters. FastAPI routes and Kafka loops emit spans, and metrics are exposed via `prometheus_client` at `/metrics`.
+
+To check metrics locally:
+
+```bash
+uvicorn app.producer.main:app --port 8000 &
+curl -s http://localhost:8000/metrics | head
+```
+
+Stop the server after inspection.
+
 ## dbt Nightly
 A scheduled GitHub Action runs dbt models and publishes docs at 05:00 UTC.
 
