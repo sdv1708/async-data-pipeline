@@ -6,6 +6,9 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
     ports:
       - '2181:2181'
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
     networks:
       - pipeline-net
 
@@ -19,6 +22,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - '9092:9092'
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD", "bash", "-c", "kafka-topics --bootstrap-server localhost:9092 --list"]
       interval: 10s
@@ -49,6 +54,8 @@ services:
       POSTGRES_DB: events
     ports:
       - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -136,6 +143,35 @@ services:
     networks:
       - pipeline-net
 
+  read-api:
+    image: python:3.12-slim
+    command: uvicorn app.read_api.main:app --host 0.0.0.0 --port 8001
+    volumes:
+      - ./:/code
+    working_dir: /code
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/events
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - '8001:8001'
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/docs')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - pipeline-net
+
 networks:
   pipeline-net:
     name: pipeline-net
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  postgres-data:
