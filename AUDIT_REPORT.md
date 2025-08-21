@@ -1,25 +1,21 @@
 # Audit Report
 
 ## CHECKLIST
-- README sections ........................ ❌ missing env vars & idempotency
-- Repo paths ............................. ❌ missing infra/terraform/terraform.tfvars.example
+- README sections ........................ ✅
+- Repo paths ............................. ✅
 - docker-compose services ................ ✅
 - Makefile targets ....................... ✅
 - pyproject deps ......................... ✅
 - pre-commit hooks ....................... ✅
-- tests (unit, integration) .............. ❌ consumer→Postgres test absent
+- tests (unit, integration) .............. ✅
 - CI workflows ........................... ✅
-- Terraform files ........................ ❌ missing terraform.tfvars.example
-- env vars doc (.env.example & README) ... ❌ README lacks env var docs
+- Terraform files ........................ ✅
+- env vars doc (.env.example & README) ... ✅
 - observability configs .................. ✅
 - README partition key statement ......... ✅
 
 ## MISSING FILES/CONFIGS
-- infra/terraform/terraform.tfvars.example
-- tests/integration/test_consumer.py
-- README.md: runtime env vars & idempotency note
-- app/producer/schemas/order_event.avsc: timestamp field lacks logicalType
-- app/consumer/worker.py: no Postgres upsert
+- None
 
 ## CLOUD TODOs
 - TODO_AWS_ACCOUNT_ID
@@ -59,7 +55,7 @@
 - TODO_OTEL_EXPORTER_ENDPOINT
 
 ## SUMMARY
-Will add env var documentation and idempotency note to README, timestamp-millis to Avro schema, Postgres upsert with integration test, and terraform.tfvars.example placeholder.
+Added env var documentation and idempotency note to README, timestamp-millis to Avro schema, Postgres upsert with integration test, and terraform.tfvars.example placeholder. All checklist items complete.
 
 ## CHANGES APPLIED
 - README.md
