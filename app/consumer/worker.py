@@ -12,8 +12,8 @@ except Exception:  # ImportError or environment without boto3
     boto3 = None
 
 import yaml
-from aiokafka import AIOKafkaConsumer
-from fastavro import schemaless_reader
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from fastavro import schemaless_reader, schemaless_writer
 from sqlalchemy.dialects.postgresql import insert
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -85,7 +85,11 @@ async def consume() -> None:
         group_id=os.getenv("KAFKA_CONSUMER_GROUP", "worker"),
         # You may also want to set enable_auto_commit=True and auto_offset_reset="earliest"/"latest" per your needs.
     )
+    producer = AIOKafkaProducer(
+        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    )
     await consumer.start()
+    await producer.start()
     try:
         async for msg in consumer:
             processed_events.inc()
@@ -112,11 +116,16 @@ async def consume() -> None:
                 flagged = await fraud.check(data)
                 await upsert_event(data)
                 if flagged:
-                    # TODO: publish to a flagged topic (e.g., "orders.flagged")
-                    # Consider using aiokafka.AIOKafkaProducer here.
-                    pass
+                    buf = io.BytesIO()
+                    schemaless_writer(buf, ORDER_SCHEMA, data)
+                    await producer.send_and_wait(
+                        os.getenv("KAFKA_TOPIC_FLAGGED", "orders.flagged"),
+                        buf.getvalue(),
+                        key=data["order_id"].encode(),
+                    )
     finally:
         await consumer.stop()
+        await producer.stop()
 
 
 if __name__ == "__main__":
