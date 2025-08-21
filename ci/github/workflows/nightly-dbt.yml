@@ -8,4 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "TODO: run dbt models and docs"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install dbt-core
+      - run: dbt snapshot
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.TODO_AWS_REGION }}
+          role-to-assume: ${{ secrets.TODO_AWS_OIDC_ROLE_ARN }}
+      - run: aws s3 cp target/snapshots s3://$TODO_S3_BUCKET_DBT_SNAPSHOTS --recursive
+        env:
+          TODO_S3_BUCKET_DBT_SNAPSHOTS: ${{ secrets.TODO_S3_BUCKET_DBT_SNAPSHOTS }}

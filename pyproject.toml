@@ -16,6 +16,7 @@ dependencies = [
     "asyncpg",
     "alembic",
     "redis",
+    "boto3",
     "structlog",
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-exporter-otlp",
