@@ -1,13 +1,15 @@
+import hashlib
 import json
 import logging
 import logging.config
-import hashlib
 from typing import Any, Dict, Optional
 
 import yaml
 from fastapi import FastAPI, HTTPException
+from sqlmodel import select
 
 from app.cache.redis_client import get_client
+from app.db import OrderEvent, async_session
 
 # Load logging configuration
 with open("configs/logging.yaml", "r", encoding="utf-8") as f:
@@ -43,8 +45,22 @@ bloom_filter = BloomFilter()
 
 
 async def _db_lookup(order_id: str) -> Optional[Dict[str, Any]]:
-    """Placeholder for a database lookup of order state."""
-    return None
+    """Query the database for the latest order state."""
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                select(OrderEvent)
+                .where(OrderEvent.order_id == order_id)
+                .order_by(OrderEvent.id.desc())
+                .limit(1)
+            )
+            event = result.scalar_one_or_none()
+            if event is None:
+                return None
+            return json.loads(event.payload)
+    except Exception as exc:  # pragma: no cover - DB errors shouldn't fail API
+        logger.error("db_error", error=str(exc))
+        return None
 
 
 async def _fetch_order_state(order_id: str) -> Dict[str, Any]:
