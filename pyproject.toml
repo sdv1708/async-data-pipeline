@@ -28,7 +28,8 @@ dependencies = [
     "black",
     "isort",
     "ruff",
-    "mypy"
+    "mypy",
+    "httpx"
 ]
 
 [tool.black]
