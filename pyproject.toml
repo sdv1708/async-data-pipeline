@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "async-kafka-pipeline"
+name = "async-data-pipeline"
 version = "0.1.0"
-description = "Async Kafka pipeline"
+description = "Async data pipeline"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",

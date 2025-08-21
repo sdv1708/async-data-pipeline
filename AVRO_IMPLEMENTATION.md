@@ -39,11 +39,6 @@ This document summarizes the Avro schema implementation for the async Kafka pipe
 - **Backward Compatibility**: Can fall back to JSON if needed
 - **Error Handling**: Comprehensive logging for serialization issues
 
-### 6. Testing Infrastructure
-- **Test Script**: `tools/test_avro_schema.py`
-- **Makefile Command**: `make test-avro`
-- **Coverage**: Schema loading, Pydantic models, serialization, evolution
-- **Validation**: Round-trip testing ensures data integrity
 
 ## 📊 Schema Structure
 
@@ -137,7 +132,5 @@ With Avro schema implementation complete, the next priorities are:
 
 ## 🔧 Commands
 
-- `make test-avro` - Test Avro schema and serialization
-- `poetry run python tools/test_avro_schema.py` - Direct test execution
 
 The Avro implementation provides a solid foundation for the event-driven architecture with proper schema evolution, type safety, and performance optimization.
