@@ -1,7 +1,13 @@
 name: nightly-dbt
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 5 * * *'   # runs at 05:00 UTC daily
+  workflow_dispatch:
+
+# Needed for OIDC role assumption (AWS step).
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   dbt:
@@ -10,9 +16,27 @@ jobs:
       DBT_PROFILES_DIR: dbt
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - run: pip install dbt-postgres
-      - run: dbt run --project-dir dbt
-      - run: dbt docs generate --project-dir dbt
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dbt
+        run: pip install dbt-core
+
+      - name: Run dbt snapshot
+        run: dbt snapshot
+        # If your dbt project lives under ./dbt/, add:
+        # run: dbt snapshot --project-dir dbt
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.TODO_AWS_REGION }}
+          role-to-assume: ${{ secrets.TODO_AWS_OIDC_ROLE_ARN }}
+
+      - name: Upload snapshots to S3
+        env:
+          TODO_S3_BUCKET_DBT_SNAPSHOTS: ${{ secrets.TODO_S3_BUCKET_DBT_SNAPSHOTS }}
+        run: aws s3 cp target/snapshots s3://$TODO_S3_BUCKET_DBT_SNAPSHOTS --recursive
