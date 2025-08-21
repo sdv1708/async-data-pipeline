@@ -135,23 +135,6 @@ await consumer.consume_messages(message_handler)
 - Remove JSON fallback
 - Full schema evolution benefits
 
-## 🚀 Commands Available
-
-```bash
-# Test Avro schema
-make test-avro
-
-# Test Kafka integration
-make test-avro-integration
-
-# Run complete pipeline test
-make test-pipeline
-
-# Start services with Avro support
-make up
-make run-consumer  # Now uses Avro
-make run-producer  # Now sends Avro events
-```
 
 ## 🔍 Monitoring and Observability
 
@@ -170,7 +153,7 @@ make run-producer  # Now sends Avro events
 ### Headers for Tracing
 - `serialization`: avro/json
 - `schema_version`: 1.0
-- `producer`: async-kafka-pipeline
+- `producer`: async-data-pipeline
 - `event_type`: ORDER_CREATED, etc.
 - `source`: order-service, test_producer, etc.
 
