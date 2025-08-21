@@ -6,6 +6,13 @@ on:
 jobs:
   dbt:
     runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: dbt
     steps:
       - uses: actions/checkout@v4
-      - run: echo "TODO: run dbt models and docs"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install dbt-postgres
+      - run: dbt run --project-dir dbt
+      - run: dbt docs generate --project-dir dbt
