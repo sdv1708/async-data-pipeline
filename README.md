@@ -28,6 +28,17 @@ Python 3.12, FastAPI, aiokafka, Redis, Postgres, Terraform, GitHub Actions, dbt.
 ## Local Workflow
 `make dev-bootstrap` then `make compose-up` to start local stack; `make test` for tests.
 
+## Database Migrations
+Alembic migrations live under `app/db/alembic/`. Ensure `DATABASE_URL` is set in your environment, then run:
+
+```bash
+# create a new migration after model changes
+alembic -c app/db/alembic/alembic.ini revision --autogenerate -m "message"
+
+# apply migrations
+alembic -c app/db/alembic/alembic.ini upgrade head
+```
+
 ## Runtime Environment Variables
 Set these in a `.env` file or your shell:
 
