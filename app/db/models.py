@@ -5,7 +5,7 @@ from sqlmodel import Field, SQLModel
 
 class OrderEvent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    event_id: str
+    event_id: str = Field(unique=True, index=True)
     order_id: str
     payload: str
 
